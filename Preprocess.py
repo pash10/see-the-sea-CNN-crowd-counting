@@ -65,6 +65,7 @@ for img_path in tqdm(img_paths):
         if int(point[1]) < img.shape[0] and int(point[0]) < img.shape[1]:
             k[int(point[1]), int(point[0])] = 1
     k = gaussian_filter_density(k)
+    print(k)
     file_path = img_path.replace('.jpg','.h5').replace('images','ground_truth')
     with h5py.File(file_path, 'w') as hf:
         hf['density'] = k
