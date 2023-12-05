@@ -43,6 +43,7 @@ path_sets = [os.path.join(root, 'part_A_final/train_data/images'),
 
 img_paths = [img_path for path in path_sets for img_path in glob.glob(os.path.join(path, '*.jpg'))]
 print(f"Total images found: {len(img_paths)}")
+print(img_paths)
 
 # Process each image to create and save a density map
 for img_path in tqdm(img_paths):
