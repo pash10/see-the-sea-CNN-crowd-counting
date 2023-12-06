@@ -35,8 +35,7 @@ def get_input(path):
     return img
 
 def get_output(path):
-    with h5py.File(path, 'r') as hf:
-        target = np.array(hf['density'])
+    with h5py.File(path, 'r') as hf:target = np.array(hf['density'])
     target = cv2.resize(target, (int(target.shape[1] / 8), int(target.shape[0] / 8)), interpolation=cv2.INTER_CUBIC) * 64
     return np.expand_dims(target, axis=-1)
 
@@ -157,8 +156,12 @@ model.compile(optimizer=SGD(lr=1e-7, decay=5e-4, momentum=0.95),
 train_gen = image_generator(img_paths, batch_size=1)
 
 # Train the model
-model.fit(train_gen, epochs=15, steps_per_epoch=700, verbose=1)
-
+if hasattr(model, 'fit_generator'):
+    # For older versions of Keras/TensorFlow
+    model.fit_generator(train_gen, epochs=15, steps_per_epoch=700, verbose=1)
+else:
+    # For newer versions of TensorFlow
+    model.fit(train_gen, epochs=15, steps_per_epoch=700, verbose=1)
 # Save the model weights and architecture
 def save_mod(model, weights_path, model_path):
     model.save_weights(weights_path)
