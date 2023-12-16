@@ -9,11 +9,11 @@ import tensorflow as tf
 def load_model():
     # Load and return neural network model
     try:
-        json_file = open('Model.json', 'r')
+        json_file = open('models/Model.json', 'r')
         loaded_model_json = json_file.read()
         json_file.close()
         loaded_model = tf.keras.models.model_from_json(loaded_model_json)
-        loaded_model.load_weights("weights/model_A_weights1.h5")
+        loaded_model.load_weights("weights/model_A_weights.h5")
         return loaded_model
     except Exception as e:
         print(f"Error loading model: {e}")
@@ -44,7 +44,7 @@ def predict(model, path):
 model = load_model()
 
 # Replace 'ShanghaiTech/part_A/train_data/images/IMG_150.jpg' with your image path
-ans, img, hmap = predict(model, 'ShanghaiTech/part_A/train_data/images/IMG_150.jpg')
+ans, img, hmap = predict(model, 'ShanghaiTech/part_A_final/train_data/images/IMG_40.jpg')
 if ans is not None:
     print(f"Predicted count: {ans}")
     plt.imshow(img.reshape(img.shape[1], img.shape[2], img.shape[3]))
@@ -54,8 +54,9 @@ if ans is not None:
 
     # Replace 'ShanghaiTech/part_A/test_data/ground_truth/IMG_170.h5' with your ground truth file
     try:
-        with h5py.File('ShanghaiTech/part_A/test_data/ground_truth/IMG_170.h5', 'r') as temp:
+        with h5py.File('ShanghaiTech/part_A_final/test_data/ground_truth/IMG_40.h5', 'r') as temp:
             temp_1 = np.asarray(temp['density'])
             print(f"Original Count: {int(np.sum(temp_1)) + 1}")
     except IOError:
         print("Error reading ground truth file")
+
