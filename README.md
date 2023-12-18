@@ -63,20 +63,7 @@ python Inference.py --model [model_path] --image [image_path]
 ```
 
 ## Citations
-If you use the Shanghai datasets or related methodologies, please cite:
-```
-@inproceedings{zhang2016single,
-  title={Single-image crowd counting via multi-column convolutional neural network},
-  author={Zhang, Yingying and Zhou, Desen and Chen, Siqin and Gao, Shenghua and Ma, Yi},
-  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
-  pages={589--597},
-  year={2016}
-}
-
-## Acknowledgments and Citations
-
 This project is based on the CSRNet-keras project, originally developed by the contributors at https://github.com/Neerajj9/CSRNet-keras. My work focuses on optimizing and improving the original code to enhance its efficiency and usability, making it more streamlined and less complex.
-
 ### Original Project
 - **Title**: CSRNet-keras
 - **Author(s)**: Contributors of the CSRNet-keras project
@@ -90,6 +77,13 @@ This project is based on the CSRNet-keras project, originally developed by the c
 Please refer to the original repository for details regarding the original project and its licensing terms.
 
 ```
+@inproceedings{zhang2016single,
+  title={Single-image crowd counting via multi-column convolutional neural network},
+  author={Zhang, Yingying and Zhou, Desen and Chen, Siqin and Gao, Shenghua and Ma, Yi},
+  booktitle={Proceedings of the IEEE conference on computer vision and pattern recognition},
+  pages={589--597},
+  year={2016}
+}
 
 
 *Note: Replace placeholders like `[input_path]`, `[output_path]`, `[train_data_path]`, `[model_path]`, `[image_path]`, and `[License Name]` with actual information relevant to your project.*
