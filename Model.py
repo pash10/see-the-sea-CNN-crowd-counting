@@ -1,171 +1,92 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Dense, Flatten
+from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.initializers import RandomNormal
-from tensorflow.keras.models import Sequential, model_from_json
-from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import numpy as np
 import h5py
 import os
-import glob
-import cv2
 import random
+import cv2
 
-# Clear any previous session
-tf.keras.backend.clear_session()
-
-root = os.path.join(os.getcwd(), 'ShanghaiTech')
-print(root)
-
-part_A_train = os.path.join(root, 'part_A_final/train_data', 'images')
-img_paths = [os.path.join(part_A_train, img) for img in os.listdir(part_A_train) if img.endswith('.jpg')]
-print("Total images : ", len(img_paths))
-
-def create_img(path):
+# Function to preprocess image
+def preprocess_image(path):
     im = load_img(path)
     im = img_to_array(im)
-    im = im / 255.0
+    im /= 255.0
     im[:, :, 0] = (im[:, :, 0] - 0.485) / 0.229
     im[:, :, 1] = (im[:, :, 1] - 0.456) / 0.224
     im[:, :, 2] = (im[:, :, 2] - 0.406) / 0.225
     return im
 
-def get_input(path):
-    img = create_img(path)
-    return img
-
-def get_output(path):
-    with h5py.File(path, 'r') as hf:target = np.array(hf['density'])
+# Function to get ground truth
+def get_ground_truth(path):
+    with h5py.File(path, 'r') as hf:
+        target = np.array(hf['density'])
     target = cv2.resize(target, (int(target.shape[1] / 8), int(target.shape[0] / 8)), interpolation=cv2.INTER_CUBIC) * 64
     return np.expand_dims(target, axis=-1)
 
-def preprocess_input(image, target):
-    crop_size = (int(image.shape[0]/2),int(image.shape[1]/2))
-    if random.randint(0,9)<= -1:
-        dx = int(random.randint(0,1)*image.shape[0]*1./2)
-        dy = int(random.randint(0,1)*image.shape[1]*1./2)
-    else:
-        dx = int(random.random()*image.shape[0]*1./2)
-        dy = int(random.random()*image.shape[1]*1./2)
-    img = image[dx : crop_size[0]+dx , dy:crop_size[1]+dy]
-    target_aug = target[dx:crop_size[0]+dx,dy:crop_size[1]+dy]
-    return(img, target_aug)
-
+# Image generator function
 def image_generator(files, batch_size=64):
     while True:
         input_path = np.random.choice(a=files, size=batch_size)
-        batch_input = []
-        batch_output = [] 
+        batch_input, batch_output = [], []
         for path in input_path:
-            input_img = get_input(path)
-            output = get_output(path.replace('.jpg','.h5').replace('images','ground_truth'))
+            input_img = preprocess_image(path)
+            output = get_ground_truth(path.replace('.jpg','.h5').replace('images','ground_truth'))
             batch_input.append(input_img)
             batch_output.append(output)
-        batch_x = np.array(batch_input)
-        batch_y = np.array(batch_output)
-        yield(batch_x, batch_y)
+        yield np.array(batch_input), np.array(batch_output)
 
-def euclidean_distance_loss(y_true, y_pred):
-    return tf.keras.backend.sqrt(tf.keras.backend.sum(tf.keras.backend.square(y_pred - y_true), axis=-1))
+# CrowdNet model definition
+def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
+    input_layer = Input(shape=(rows, cols, 3))
+    x = input_layer
 
-def init_weights_vgg(model):
-    json_file = open('models/VGG_16.json', 'r')
-    loaded_model_json = json_file.read()
-    json_file.close()
-    loaded_model = model_from_json(loaded_model_json)
-    loaded_model.load_weights('weights/VGG_16.h5')
-    
-    vgg = loaded_model
-    vgg_weights = [layer.get_weights() for layer in vgg.layers if 'conv' in layer.name]
-    
-    offset = 0
-    i = 0
-    while i < len(vgg_weights):
-        if 'conv' in model.layers[i + offset].name:
-            model.layers[i + offset].set_weights(vgg_weights[i])
-            i += 1
-        else:
-            offset += 1
+    for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
+        x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
+        if use_batch_norm:
+            x = BatchNormalization()(x)
+        if filters in [64, 128, 256]:
+            x = MaxPooling2D(strides=2)(x)
+        if dropout_rate > 0:
+            x = Dropout(dropout_rate)(x)
+
+    for filters in [512, 512, 512, 256, 128, 64]:
+        x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=2, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
+
+    x = Conv2D(1, (1, 1), activation='relu', dilation_rate=1, kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
+
+    if include_dense:
+        x = Flatten()(x)
+        x = Dense(1024, activation='relu')(x)
+
+    model = Model(inputs=input_layer, outputs=x)
+
+    if optimizer_name == 'sgd':
+        opt = SGD(lr=learning_rate, decay=5e-4, momentum=0.95)
+    elif optimizer_name == 'adam':
+        opt = Adam(lr=learning_rate)
+
+    model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     return model
 
-def CrowdNet():  
-    rows, cols = None, None
-    batch_norm = 0
-    kernel = (3, 3)
-    init = RandomNormal(stddev=0.01)
-    model = Sequential()
-    
-    if batch_norm:
-        model.add(Conv2D(64, kernel_size=kernel, input_shape=(rows,cols,3), activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(Conv2D(64, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(MaxPooling2D(strides=2))
-        model.add(Conv2D(128, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(Conv2D(128, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(MaxPooling2D(strides=2))
-        model.add(Conv2D(256, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(Conv2D(256, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(Conv2D(256, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(MaxPooling2D(strides=2))
-        model.add(Conv2D(512, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(Conv2D(512, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-        model.add(Conv2D(512, kernel_size=kernel, activation='relu', padding='same'))
-        model.add(BatchNormalization())
-    else:
-        model.add(Conv2D(64, kernel_size=kernel, activation='relu', padding='same', input_shape=(rows, cols, 3), kernel_initializer=init))
-        model.add(Conv2D(64, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(MaxPooling2D(strides=2))
-        model.add(Conv2D(128, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(Conv2D(128, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(MaxPooling2D(strides=2))
-        model.add(Conv2D(256, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(Conv2D(256, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(Conv2D(256, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(MaxPooling2D(strides=2))
-        model.add(Conv2D(512, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(Conv2D(512, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-        model.add(Conv2D(512, kernel_size=kernel, activation='relu', padding='same', kernel_initializer=init))
-
-    model.add(Conv2D(512, (3, 3), activation='relu', dilation_rate=2, kernel_initializer=init, padding='same'))
-    model.add(Conv2D(512, (3, 3), activation='relu', dilation_rate=2, kernel_initializer=init, padding='same'))
-    model.add(Conv2D(512, (3, 3), activation='relu', dilation_rate=2, kernel_initializer=init, padding='same'))
-    model.add(Conv2D(256, (3, 3), activation='relu', dilation_rate=2, kernel_initializer=init, padding='same'))
-    model.add(Conv2D(128, (3, 3), activation='relu', dilation_rate=2, kernel_initializer=init, padding='same'))
-    model.add(Conv2D(64, (3, 3), activation='relu', dilation_rate=2, kernel_initializer=init, padding='same'))
-    model.add(Conv2D(1, (1, 1), activation='relu', dilation_rate=1, kernel_initializer=init, padding='same'))
-
-    sgd = SGD(lr=1e-7, decay=(5 * 1e-4), momentum=0.95)
-    model.compile(optimizer=sgd, loss=euclidean_distance_loss, metrics=['mse'])
-    
-    return model
-
-model = CrowdNet()
-model.compile(optimizer=SGD(lr=1e-7, decay=5e-4, momentum=0.95), 
-              loss=euclidean_distance_loss, 
-              metrics=['mse'])
-
-# Load image paths and create the training generator
-train_gen = image_generator(img_paths, batch_size=1)
-
-# Train the model
-if hasattr(model, 'fit_generator'):
-    # For older versions of Keras/TensorFlow
-    model.fit_generator(train_gen, epochs=15, steps_per_epoch=700, verbose=1)
-else:
-    # For newer versions of TensorFlow
-    model.fit(train_gen, epochs=15, steps_per_epoch=700, verbose=1)
-# Save the model weights and architecture
-def save_mod(model, weights_path, model_path):
+# Function to train and save the model
+def train_and_save_model(model, train_gen, epochs, steps_per_epoch, weights_path, model_path):
+    model.fit(train_gen, epochs=epochs, steps_per_epoch=steps_per_epoch, verbose=1)
     model.save_weights(weights_path)
     with open(model_path, "w") as json_file:
         json_file.write(model.to_json())
+    print(f"Model and weights saved at {model_path} and {weights_path} respectively.")
 
-save_mod(model, 'weights/model_A_weights.h5', 'models/Model.json')
+# Main script
+tf.keras.backend.clear_session()
+
+root_dir = os.path.join(os.getcwd(), 'ShanghaiTech')
+part_A_train = os.path.join(root_dir, 'part_A_final/train_data', 'images')
+img_paths = [os.path.join(part_A_train, img) for img in os.listdir(part_A_train) if img.endswith('.jpg')]
+
+model = CrowdNet(224, 224, use_batch_norm=True, optimizer_name='adam', include_dense=True, dropout_rate=0.5)
+train_gen = image_generator(img_paths, batch_size=1)
+train_and_save_model(model, train_gen, epochs=15, steps_per_epoch=700, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
