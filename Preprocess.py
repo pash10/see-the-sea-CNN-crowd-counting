@@ -60,3 +60,6 @@ for img_path in tqdm(img_paths):
     with h5py.File(file_path, 'w') as hf:
         hf['density'] = k
     print(f"Density map saved to: {file_path}")
+
+
+#credit to person that del it lib that i found this file MY G!
