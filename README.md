@@ -1,6 +1,5 @@
 
-# see The See Drone - crowd counting
-
+# See The Sea Drone - crowd counting 
 ## Overview
 This project is an implementation of advanced image analysis using deep learning, specifically focusing on crowd counting and density estimation in images. It leverages the methodologies proposed in the Shanghai datasets research, particularly the use of multi-column convolutional neural networks for single-image crowd counting.
 
