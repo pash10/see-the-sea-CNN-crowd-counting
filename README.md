@@ -45,10 +45,6 @@ python Inference.py --model [model_path] --image [image_path]
 ```
 
 ## License and Citations
-This project is licensed under the [License Name]. For more information, see the `LICENSE` file in the repository.
-
-If you use the Shanghai datasets or methodologies from related works in your research, please cite the following:
-
 ```
 @inproceedings{zhang2016single,
   title={Single-image crowd counting via multi-column convolutional neural network},
