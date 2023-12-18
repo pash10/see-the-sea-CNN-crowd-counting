@@ -11,6 +11,12 @@ import random
 import cv2
 
 # Function to preprocess image
+# Preprocesses an image by applying normalization and standardization.
+# Args:
+# path (str): Path to the image file.
+# Returns:
+# numpy.ndarray: The preprocessed image.
+
 def preprocess_image(path):
     im = load_img(path)
     im = img_to_array(im)
@@ -21,6 +27,12 @@ def preprocess_image(path):
     return im
 
 # Function to get ground truth
+# Preprocesses an image by applying normalization and standardization.
+# Args:
+# path (str): Path to the image file.
+# Returns:
+# numpy.ndarray: The preprocessed image.
+
 def get_ground_truth(path):
     with h5py.File(path, 'r') as hf:
         target = np.array(hf['density'])
@@ -28,6 +40,13 @@ def get_ground_truth(path):
     return np.expand_dims(target, axis=-1)
 
 # Image generator function
+# Generator that yields batches of images and corresponding ground truth for training.
+# Args:
+# files (list): List of image file paths.
+# batch_size (int): Size of the batch to be generated.
+# Yields:
+# tuple: A batch of images and their corresponding ground truths.
+
 def image_generator(files, batch_size=64):
     while True:
         input_path = np.random.choice(a=files, size=batch_size)
@@ -40,6 +59,18 @@ def image_generator(files, batch_size=64):
         yield np.array(batch_input), np.array(batch_output)
 
 # CrowdNet model definition
+# Defines and compiles the CrowdNet model architecture.
+# Args:
+# rows (int, optional): Height of the input image.
+# cols (int, optional): Width of the input image.
+# use_batch_norm (bool): Whether to use Batch Normalization.
+# optimizer_name (str): Choice of optimizer, 'sgd' or 'adam'.
+# learning_rate (float): Initial learning rate for the optimizer.
+# include_dense (bool): Whether to include dense layers.
+# dropout_rate (float): Dropout rate for dropout layers.
+# Returns:
+# tensorflow.keras.models.Model: The compiled Keras Model.
+
 def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
     input_layer = Input(shape=(rows, cols, 3))
     x = input_layer
@@ -73,6 +104,16 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
     return model
 
 # Function to train and save the model
+# Trains the model using a given data generator and saves the model's weights and architecture.
+# Args:
+# model (tensorflow.keras.models.Model): The Keras model to be trained.
+# train_gen (generator): Generator that yields training data.
+# epochs (int): Number of epochs for training.
+# steps_per_epoch (int): Number of steps per epoch.
+# weights_path (str): Path where model weights will be saved.
+# model_path (str): Path where model architecture will be saved.
+# Returns:
+# None
 def train_and_save_model(model, train_gen, epochs, steps_per_epoch, weights_path, model_path):
     model.fit(train_gen, epochs=epochs, steps_per_epoch=steps_per_epoch, verbose=1)
     model.save_weights(weights_path)
