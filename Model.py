@@ -61,9 +61,20 @@ def preprocess_image(path):
 def get_ground_truth(path):
     with h5py.File(path, 'r') as hf:
         target = np.array(hf['density'])
+
+    # Ensure dimensions are divisible by 8
+    height, width = target.shape
+    if height % 8 != 0 or width % 8 != 0:
+        # Compute new dimensions that are divisible by 8
+        new_height = height + (8 - height % 8)
+        new_width = width + (8 - width % 8)
+
+        # Resize target to new dimensions
+        target = cv2.resize(target, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+
+    # Resize target for model input
     target = cv2.resize(target, (int(target.shape[1] / 8), int(target.shape[0] / 8)), interpolation=cv2.INTER_CUBIC) * 64
     return np.expand_dims(target, axis=-1)
-
 
 # Image Generator:
 # This function acts as a generator for batch processing in model training. It randomly selects
