@@ -203,4 +203,4 @@ model = CrowdNet(224, 224, use_batch_norm=True, optimizer_name='adam', include_d
 train_gen = image_generator(img_paths, batch_size=1)
 
 # Train the model and save it
-train_and_save_model(model, train_gen, epochs=15, steps_per_epoch=700, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
+train_and_save_model(model, train_gen, epochs=1, steps_per_epoch=50, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
