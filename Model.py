@@ -120,9 +120,11 @@ def image_generator(files, batch_size=64):
 # After defining the model, it is recommended to check the model structure using model.summary().
 
 def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
+    # Ensure rows and cols are divisible by the total stride of the network, e.g., 8
     input_layer = Input(shape=(rows, cols, 3))
     x = input_layer
 
+    # Adjust the layers, strides, and paddings if needed
     for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
         x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
         if use_batch_norm:
@@ -143,6 +145,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 
     model = Model(inputs=input_layer, outputs=x)
 
+    # Select optimizer
     if optimizer_name == 'sgd':
         opt = SGD(lr=learning_rate, decay=5e-4, momentum=0.95)
     elif optimizer_name == 'adam':
@@ -150,6 +153,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     return model
+
 
 # Function: train_and_save_model
 # This function handles the training of a Keras model using provided data from a generator. It 
