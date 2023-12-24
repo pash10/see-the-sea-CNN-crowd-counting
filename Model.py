@@ -120,6 +120,7 @@ def image_generator(files, batch_size=64):
 # After defining the model, it is recommended to check the model structure using model.summary().
 
 
+
 def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
     assert rows % 16 == 0 and cols % 16 == 0, "Rows and columns must be divisible by 16"
     
@@ -143,7 +144,15 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
     x = Conv2D(1, (1, 1), activation='relu', kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
 
     if include_dense:
+        # Flatten the output of the last convolutional layer
         x = Flatten()(x)
+
+        # Ensure the Dense layer size matches the flattened output size
+        # Assuming the final output shape of the convolutional layers is (None, H, W, 1)
+        # where H and W depend on the input size and the network architecture
+        dense_input_size = rows // 16 * cols // 16 * 1  # Adjust based on your network's downsampling
+        x = Dense(dense_input_size, activation='relu')(x)
+
         x = Dense(1024, activation='relu')(x)
 
     model = Model(inputs=input_layer, outputs=x)
@@ -155,6 +164,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     return model
+
 
 
 
