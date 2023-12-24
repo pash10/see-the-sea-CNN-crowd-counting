@@ -178,6 +178,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 # to provide valid paths for saving the model and weights to ensure no data loss after training.
 
 def train_and_save_model(model, train_gen, epochs, steps_per_epoch, weights_path, model_path):
+    print(model.summary())
     model.fit(train_gen, epochs=epochs, steps_per_epoch=steps_per_epoch, verbose=1)
     model.save_weights(weights_path)
     with open(model_path, "w") as json_file:
