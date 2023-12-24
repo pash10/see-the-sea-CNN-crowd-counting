@@ -119,8 +119,8 @@ def image_generator(files, batch_size=64):
 # and dropout. The model can be further customized and tested for various image processing tasks.
 # After defining the model, it is recommended to check the model structure using model.summary().
 
+
 def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
-    # Ensure rows and cols are divisible by 16 (2^4 due to 4 MaxPooling layers with stride 2)
     assert rows % 16 == 0 and cols % 16 == 0, "Rows and columns must be divisible by 16"
     
     input_layer = Input(shape=(rows, cols, 3))
@@ -132,15 +132,15 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
         if use_batch_norm:
             x = BatchNormalization()(x)
         if filters in [64, 128, 256]:
-            x = MaxPooling2D(strides=2)(x)
+            x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same')(x)
         if dropout_rate > 0:
             x = Dropout(dropout_rate)(x)
 
-    # Dilation rate should ensure that the output dimensions are compatible
+    # Adjusted layers to avoid incompatible dimensions
     for filters in [512, 512, 512, 256, 128, 64]:
-        x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=2, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
+        x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=1, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
 
-    x = Conv2D(1, (1, 1), activation='relu', dilation_rate=1, kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
+    x = Conv2D(1, (1, 1), activation='relu', kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
 
     if include_dense:
         x = Flatten()(x)
@@ -148,14 +148,14 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 
     model = Model(inputs=input_layer, outputs=x)
 
-    # Select optimizer
     if optimizer_name == 'sgd':
-        opt = SGD(lr=learning_rate, decay=5e-4, momentum=0.95)
+        opt = SGD(learning_rate=learning_rate, decay=5e-4, momentum=0.95)
     elif optimizer_name == 'adam':
-        opt = Adam(lr=learning_rate)
+        opt = Adam(learning_rate=learning_rate)
 
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     return model
+
 
 
 # Function: train_and_save_model
