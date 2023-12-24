@@ -120,11 +120,13 @@ def image_generator(files, batch_size=64):
 # After defining the model, it is recommended to check the model structure using model.summary().
 
 def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
-    # Ensure rows and cols are divisible by the total stride of the network, e.g., 8
+    # Ensure rows and cols are divisible by 16 (2^4 due to 4 MaxPooling layers with stride 2)
+    assert rows % 16 == 0 and cols % 16 == 0, "Rows and columns must be divisible by 16"
+    
     input_layer = Input(shape=(rows, cols, 3))
     x = input_layer
 
-    # Adjust the layers, strides, and paddings if needed
+    # Convolutional layers with pooling and dropout
     for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
         x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
         if use_batch_norm:
@@ -134,6 +136,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
         if dropout_rate > 0:
             x = Dropout(dropout_rate)(x)
 
+    # Dilation rate should ensure that the output dimensions are compatible
     for filters in [512, 512, 512, 256, 128, 64]:
         x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=2, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
 
