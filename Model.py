@@ -4,6 +4,7 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalizat
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.layers import GlobalAveragePooling2D  
 import numpy as np
 import h5py
 import os
@@ -137,6 +138,12 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
         if dropout_rate > 0:
             x = Dropout(dropout_rate)(x)
 
+    # Restored adjusted layers
+    for filters in [512, 512, 512, 256, 128, 64]:
+        x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=1, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
+
+    x = Conv2D(1, (1, 1), activation='relu', kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
+
     # Global Average Pooling as an alternative to Flatten
     x = GlobalAveragePooling2D()(x)
 
@@ -153,6 +160,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     return model
+
 
 
 
