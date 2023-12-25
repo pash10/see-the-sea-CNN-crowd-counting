@@ -137,22 +137,11 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
         if dropout_rate > 0:
             x = Dropout(dropout_rate)(x)
 
-    # Adjusted layers to avoid incompatible dimensions
-    for filters in [512, 512, 512, 256, 128, 64]:
-        x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=1, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
-
-    x = Conv2D(1, (1, 1), activation='relu', kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
+    # Global Average Pooling as an alternative to Flatten
+    x = GlobalAveragePooling2D()(x)
 
     if include_dense:
-        # Flatten the output of the last convolutional layer
-        x = Flatten()(x)
-
-        # Ensure the Dense layer size matches the flattened output size
-        # Assuming the final output shape of the convolutional layers is (None, H, W, 1)
-        # where H and W depend on the input size and the network architecture
-        dense_input_size = rows // 16 * cols // 16 * 1  # Adjust based on your network's downsampling
-        x = Dense(dense_input_size, activation='relu')(x)
-
+        # Dense layers after global pooling
         x = Dense(1024, activation='relu')(x)
 
     model = Model(inputs=input_layer, outputs=x)
@@ -164,6 +153,7 @@ def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', l
 
     model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
     return model
+
 
 
 
