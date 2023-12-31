@@ -1,15 +1,17 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Dense, Flatten
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, BatchNormalization, Dropout, Dense, Flatten, Reshape  
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.layers import GlobalAveragePooling2D  
+import tensorflow.keras.backend as K
 import numpy as np
 import h5py
 import os
 import random
 import cv2
+
 
 # Function: preprocess_image
 # This function preprocesses an image by applying normalization and standardization, 
@@ -86,18 +88,41 @@ def get_ground_truth(path):
 # batch_size (int): Number of images to include in each batch.
 # Yields:
 # (numpy.ndarray, numpy.ndarray): A tuple containing a batch of images and their corresponding ground truths.
-
-
-def image_generator(files, batch_size=64):
+def image_generator(files, batch_size=64, target_height=256, target_width=2):
     while True:
         input_path = np.random.choice(a=files, size=batch_size)
         batch_input, batch_output = [], []
         for path in input_path:
-            input_img = preprocess_image(path)
+            input_img = preprocess_image(path)  # Preprocess image to [224, 224, 3]
             output = get_ground_truth(path.replace('.jpg','.h5').replace('images','ground_truth'))
+            output = cv2.resize(output, (target_width, target_height))  # Resize to [256, 2]
+            output = np.expand_dims(output, axis=-1)  # Add channel dimension
             batch_input.append(input_img)
             batch_output.append(output)
         yield np.array(batch_input), np.array(batch_output)
+
+
+
+
+
+def euclidean_distance_loss(y_true, y_pred):
+    """
+    Euclidean distance as a measure of loss (Loss function).
+    Improved for numerical stability by adding a small constant inside the square root.
+    """
+    # Calculate squared difference
+    squared_difference = K.square(y_pred - y_true)
+    
+    # Sum over all dimensions
+    sum_squared_difference = K.sum(squared_difference, axis=-1)
+    
+    # Add a small constant (epsilon) for numerical stability
+    epsilon = K.epsilon()
+    
+    # Return the square root of the sum
+    return K.sqrt(sum_squared_difference + epsilon)
+
+
 
 # CrowdNet Model Definition:
 # This function defines and compiles the CrowdNet model architecture. It is designed to be flexible 
@@ -121,47 +146,51 @@ def image_generator(files, batch_size=64):
 # After defining the model, it is recommended to check the model structure using model.summary().
 
 
+def CrowdNet(rows, cols, target_height, target_width, use_batch_norm=True, optimizer_name='adam', learning_rate=1e-4, dropout_rate=0.5):    
+     assert rows % 16 == 0 and cols % 16 == 0, "Rows and columns must be divisible by 16"
+     input_layer = Input(shape=(rows, cols, 3))
+     x = input_layer
 
-def CrowdNet(rows=None, cols=None, use_batch_norm=False, optimizer_name='sgd', learning_rate=1e-7, include_dense=False, dropout_rate=0.0):
-    assert rows % 16 == 0 and cols % 16 == 0, "Rows and columns must be divisible by 16"
-    
-    input_layer = Input(shape=(rows, cols, 3))
-    x = input_layer
-
-    # Convolutional layers with pooling and dropout
-    for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
+    # First set of layers: Conv, BatchNorm, MaxPooling, Dropout
+     for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
         x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
         if use_batch_norm:
             x = BatchNormalization()(x)
-        if filters in [64, 128, 256]:
-            x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same')(x)
-        if dropout_rate > 0:
-            x = Dropout(dropout_rate)(x)
+        x = MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same')(x)
+        x = Dropout(dropout_rate)(x)
 
-    # Restored adjusted layers
-    for filters in [512, 512, 512, 256, 128, 64]:
-        x = Conv2D(filters, (3, 3), activation='relu', dilation_rate=1, padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
+    # Additional Conv layers without pooling
+     for filters in [512, 512, 512, 256, 128, 64]:
+        x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
+        if use_batch_norm:
+            x = BatchNormalization()(x)
+        x = Dropout(dropout_rate)(x)
 
-    x = Conv2D(1, (1, 1), activation='relu', kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
+    # Flatten and add dense layers
+     x = Flatten()(x)
 
-    # Global Average Pooling as an alternative to Flatten
-    x = GlobalAveragePooling2D()(x)
+     # Calculate the correct number of units for the Dense layer to match the Reshape target
+     target_shape = (target_height, target_width, 1)
+     dense_units = target_height * target_width
 
-    if include_dense:
-        # Dense layers after global pooling
-        x = Dense(1024, activation='relu')(x)
+    # Dense layer with the calculated number of units
+     x = Dense(dense_units, activation='relu')(x)
+     x = Dropout(dropout_rate)(x)
 
-    model = Model(inputs=input_layer, outputs=x)
+    # Reshape output for final Conv2D layer
+     x = Reshape(target_shape)(x)
 
-    if optimizer_name == 'sgd':
-        opt = SGD(learning_rate=learning_rate, decay=5e-4, momentum=0.95)
-    elif optimizer_name == 'adam':
-        opt = Adam(learning_rate=learning_rate)
+    # Final Conv2D layer to output a density map
+     x = Conv2D(1, (1, 1), activation='linear', padding='same')(x)
 
-    model.compile(optimizer=opt, loss='mean_squared_error', metrics=['mse'])
-    return model
+     model = Model(inputs=input_layer, outputs=x)
 
+    # Choose the optimizer
+     optimizer = Adam(learning_rate=learning_rate) if optimizer_name == 'adam' else SGD(learning_rate=learning_rate, decay=5e-4, momentum=0.95)
 
+    # Compile the model with Euclidean distance loss
+     model.compile(optimizer=optimizer, loss=euclidean_distance_loss, metrics=['mse'])
+     return model
 
 
 
@@ -213,10 +242,10 @@ part_A_train = os.path.join(root_dir, 'part_A_final/train_data', 'images')
 img_paths = [os.path.join(part_A_train, img) for img in os.listdir(part_A_train) if img.endswith('.jpg')]
 
 # Initialize and compile the CrowdNet model with specified parameters
-model = CrowdNet(224, 224, use_batch_norm=True, optimizer_name='adam', include_dense=True, dropout_rate=0.5)
+model = CrowdNet(224, 224, 256, 2, use_batch_norm=True, optimizer_name='adam', dropout_rate=0.5)
 
 # Create a generator for the training data
 train_gen = image_generator(img_paths, batch_size=1)
 
 # Train the model and save it
-train_and_save_model(model, train_gen, epochs=15, steps_per_epoch=700, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
+train_and_save_model(model, train_gen, epochs=4, steps_per_epoch=50, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')

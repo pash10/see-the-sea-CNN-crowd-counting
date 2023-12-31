@@ -63,6 +63,8 @@ def load_model():
 def create_img(path):
     try:
         im = Image.open(path).convert('RGB')
+        # Resize the image to match the model's expected input size
+        im = im.resize((224, 224), Image.ANTIALIAS)
         im = np.array(im) / 255.0
         im = (im - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
         im = np.expand_dims(im, axis=0)
@@ -70,7 +72,6 @@ def create_img(path):
     except IOError:
         print(f"Error opening image file: {path}")
         return None
-
 # Function: predict
 # This function is designed to utilize a trained neural network model to predict outputs from an input image.
 # It first preprocesses the image using the 'create_img' function. Once the image is in the correct format,
@@ -92,14 +93,35 @@ def create_img(path):
 # This function is a key component in applications where neural network models are used for image analysis,
 # such as estimating crowd sizes or detecting objects in images. It bridges the gap between raw image data
 # and actionable insights or quantitative measures derived from those images.
+
 def predict(model, path):
     image = create_img(path)
-    if image is not None and model is not None:
-        ans = model.predict(image)
-        count = np.sum(ans)
-        return count, image, ans
+
+    # Predict using the model
+    ans = model.predict(image)
+
+    # Summing up the values in the heatmap for the count
+    # This assumes the model output is a density map where the count is the sum of pixel values
+    count = np.sum(ans)
+
+    # Handling different shapes of model output
+    if len(ans.shape) == 4:  # If the output shape is (1, height, width, channels)
+        # Reshape the heatmap to (height, width), using the first channel
+        hmap = ans[0, :, :, 0]
+    elif len(ans.shape) == 3:  # If the output is already (height, width, channels)
+        # Use the first channel of the heatmap
+        hmap = ans[:, :, 0]
+    elif len(ans.shape) == 2:  # If the output is (1, features) which might be the case here
+        # Directly use the output as the heatmap might not be applicable
+        hmap = ans
     else:
+        # Handle other cases or raise an error
+        print("Unexpected model output shape:", ans.shape)
         return None, None, None
+
+    return count, image, hmap
+
+
 
 # Main Script Execution:
 # This section of the script demonstrates the end-to-end process of loading a trained model, 
@@ -113,7 +135,7 @@ model = load_model()
 
 # Predict and display results for a specific image
 # Note: Update 'image_path' with the path of your test image
-image_path = 'ShanghaiTech/part_A_final/train_data/images/IMG_40.jpg'
+image_path = 'ShanghaiTech/part_A_final/train_data/images/IMG_105.jpg'
 ans, img, hmap = predict(model, image_path)
 if ans is not None:
     # Print the predicted count and display the original image and the predicted heat map
@@ -125,7 +147,7 @@ if ans is not None:
 
 # Compare with ground truth
 # Note: Update 'ground_truth_path' with the path of your ground truth file
-ground_truth_path = 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_40.h5'
+ground_truth_path = 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_105.h5'
 try:
     with h5py.File(ground_truth_path, 'r') as temp:
         temp_1 = np.asarray(temp['density'])
