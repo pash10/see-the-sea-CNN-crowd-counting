@@ -94,11 +94,18 @@ def image_generator(files, batch_size=64, target_height=256, target_width=2):
         batch_input, batch_output = [], []
         for path in input_path:
             input_img = preprocess_image(path)  # Preprocess image to [224, 224, 3]
+
             output = get_ground_truth(path.replace('.jpg','.h5').replace('images','ground_truth'))
-            output = cv2.resize(output, (target_width, target_height))  # Resize to [256, 2]
+            
+            # Ensure the output is resized correctly
+            current_height, current_width = output.shape[:2]
+            if current_height != target_height or current_width != target_width:
+                output = cv2.resize(output, (target_width, target_height), interpolation=cv2.INTER_CUBIC)
+
             output = np.expand_dims(output, axis=-1)  # Add channel dimension
             batch_input.append(input_img)
             batch_output.append(output)
+
         yield np.array(batch_input), np.array(batch_output)
 
 
@@ -245,4 +252,4 @@ model = CrowdNet(224, 224, 256, 2, use_batch_norm=True, optimizer_name='adam', d
 train_gen = image_generator(img_paths, batch_size=1)
 
 # Train the model and save it
-train_and_save_model(model, train_gen, epochs=7, steps_per_epoch=50, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
+train_and_save_model(model, train_gen, epochs=15, steps_per_epoch=700, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
