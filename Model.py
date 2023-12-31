@@ -192,9 +192,6 @@ def CrowdNet(rows, cols, target_height, target_width, use_batch_norm=True, optim
      model.compile(optimizer=optimizer, loss=euclidean_distance_loss, metrics=['mse'])
      return model
 
-
-
-
 # Function: train_and_save_model
 # This function handles the training of a Keras model using provided data from a generator. It 
 # allows specifying the number of training epochs and steps per epoch, which are essential parameters 
@@ -248,4 +245,4 @@ model = CrowdNet(224, 224, 256, 2, use_batch_norm=True, optimizer_name='adam', d
 train_gen = image_generator(img_paths, batch_size=1)
 
 # Train the model and save it
-train_and_save_model(model, train_gen, epochs=4, steps_per_epoch=50, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
+train_and_save_model(model, train_gen, epochs=7, steps_per_epoch=50, weights_path='weights/model_A_weights.h5', model_path='models/Model.json')
