@@ -44,14 +44,14 @@ def validate_ground_truth(path_to_image, path_to_ground_truth):
     # Add more checks if necessary
     return True
 
-validate_ground_truth('ShanghaiTech/part_A_final/train_data/images/IMG_40.jpg', 'ShanghaiTech/part_A_final/train_data/ground_truth/IMG_45.h5')
+validate_ground_truth('ShanghaiTech/part_A_final/train_data/images/IMG_40.jpg', 'ShanghaiTech/part_A_final/train_data/ground_truth/IMG_87.h5')
 
 def direct_ground_truth_check(path):
     with h5py.File(path, 'r') as hf:
         density_map = np.array(hf['density'])
         return np.sum(density_map)
 
-ground_truth_check = direct_ground_truth_check('ShanghaiTech/part_A_final/train_data/ground_truth/IMG_40.h5')
+ground_truth_check = direct_ground_truth_check('ShanghaiTech/part_A_final/train_data/ground_truth/IMG_105.h5')
 print("Direct ground truth check:", ground_truth_check)
 
 
@@ -65,4 +65,5 @@ def visualize_density_map(density_map_path):
     plt.colorbar()
     plt.show()
 
-visualize_density_map('ShanghaiTech/part_A_final/train_data/ground_truth/IMG_40.h5')
+visualize_density_map('ShanghaiTech/part_A_final/train_data/ground_truth/IMG_105.h5')
+

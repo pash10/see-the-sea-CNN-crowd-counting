@@ -139,7 +139,7 @@ image_path = 'ShanghaiTech/part_A_final/train_data/images/IMG_105.jpg'
 ans, img, hmap = predict(model, image_path)
 if ans is not None:
     # Print the predicted count and display the original image and the predicted heat map
-    print(f"Predicted count: {ans}")
+    print(f"Predicted count: {ans }")
     plt.imshow(img.reshape(img.shape[1], img.shape[2], img.shape[3]))
     plt.show()
     plt.imshow(hmap.reshape(hmap.shape[1], hmap.shape[2]), cmap=c.jet)
@@ -147,7 +147,7 @@ if ans is not None:
 
 # Compare with ground truth
 # Note: Update 'ground_truth_path' with the path of your ground truth file
-ground_truth_path = 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_105.h5'
+ground_truth_path = 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_40.h5'
 try:
     with h5py.File(ground_truth_path, 'r') as temp:
         temp_1 = np.asarray(temp['density'])
