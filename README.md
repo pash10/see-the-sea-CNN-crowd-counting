@@ -10,7 +10,7 @@
   - [Inference](#inference)
 - [Examples](#examples)
 - [Citations](#citations)
-- [License](#license)
+
 
 ## Overview
 This project implements advanced image analysis using deep learning, focusing on crowd counting and density estimation in images. It incorporates the methodologies from the Shanghai datasets research, especially the multi-column convolutional neural networks for single-image crowd counting.
@@ -54,13 +54,13 @@ python Inference.py [arguments or options]
 To get started, use these example commands:
 ```bash
 # Preprocessing
-python Preprocess.py --input [input_path] --output [output_path]
+python Preprocess.py 
 
 # Model setup
-python Model.py --train [train_data_path]
+python Model.py 
 
 # Inference
-python Inference.py --model [model_path] --image [image_path]
+python Inference.py 
 ```
 ## Citations and Acknowledgments
 
@@ -82,8 +82,6 @@ Key improvements made to the original CSRNet-keras codebase include:
 For more details on the original project and its licensing terms, please refer to the [CSRNet-keras GitHub repository](https://github.com/Neerajj9/CSRNet-keras).
 
 ### Reference Paper
-If utilizing this project or the CSRNet-keras project in academic research, please include the following citation:
-
 @inproceedings{zhang2016single,
 title={Single-image crowd counting via multi-column convolutional neural network},
 author={Zhang, Yingying and Zhou, Desen and Chen, Siqin and Gao, Shenghua and Ma, Yi},
@@ -94,4 +92,3 @@ year={2016}
 
 ---
 
-*Note: Replace placeholders like `[input_path]`, `[output_path]`, `[train_data_path]`, `[model_path]`, `[image_path]`, and `[License Name]` with actual information relevant to your project.*

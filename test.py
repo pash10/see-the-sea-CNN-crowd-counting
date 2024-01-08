@@ -9,7 +9,7 @@ def check_ground_truth_size(file_path):
         print("Shape of the ground truth data:", ground_truth_data.shape)
 
 # Replace this with the path to one of your actual ground truth HDF5 files
-ground_truth_file = 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_105.h5'
+ground_truth_file = 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_106.h5'
 check_ground_truth_size(ground_truth_file)
 
 def preprocess_image(path):
@@ -44,14 +44,14 @@ def validate_ground_truth(path_to_image, path_to_ground_truth):
     # Add more checks if necessary
     return True
 
-validate_ground_truth('ShanghaiTech/part_A_final/train_data/images/IMG_40.jpg', 'ShanghaiTech/part_A_final/train_data/ground_truth/IMG_87.h5')
+validate_ground_truth('ShanghaiTech/part_A_final/train_data/images/IMG_106.jpg', 'ShanghaiTech/part_A_final/test_data/ground_truth/IMG_106.h5')
 
 def direct_ground_truth_check(path):
     with h5py.File(path, 'r') as hf:
         density_map = np.array(hf['density'])
         return np.sum(density_map)
 
-ground_truth_check = direct_ground_truth_check('ShanghaiTech/part_A_final/train_data/ground_truth/IMG_105.h5')
+ground_truth_check = direct_ground_truth_check('ShanghaiTech/part_A_final/test_data/ground_truth/IMG_106.h5')
 print("Direct ground truth check:", ground_truth_check)
 
 
@@ -61,9 +61,9 @@ import matplotlib.pyplot as plt
 def visualize_density_map(density_map_path):
     with h5py.File(density_map_path, 'r') as hf:
         density_map = np.array(hf['density'])
-    plt.imshow(density_map, cmap='hot')
+    plt.imshow(density_map, cmap='jet')
     plt.colorbar()
     plt.show()
 
-visualize_density_map('ShanghaiTech/part_A_final/train_data/ground_truth/IMG_105.h5')
+visualize_density_map('ShanghaiTech/part_A_final/test_data/ground_truth/IMG_106.h5')
 
