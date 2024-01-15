@@ -5,11 +5,12 @@ from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.layers import GlobalAveragePooling2D  
-import tensorflow.keras.backend as K
+import tensorflow.keras.backend as K 
 import numpy as np
 import h5py
 import os
 import random
+from tensorflow.keras.models import model_from_json
 import cv2
 
 
@@ -62,22 +63,26 @@ def preprocess_image(path):
 # numpy.ndarray: The resized and processed ground truth density map as a numpy array.
 
 def get_ground_truth(path):
-    with h5py.File(path, 'r') as hf:
-        target = np.array(hf['density'])
+    try:
+        with h5py.File(path, 'r') as hf:
+            target = np.array(hf['density'])
 
-    # Ensure dimensions are divisible by 8
-    height, width = target.shape
-    if height % 8 != 0 or width % 8 != 0:
-        # Compute new dimensions that are divisible by 8
-        new_height = height + (8 - height % 8)
-        new_width = width + (8 - width % 8)
+        # Ensure dimensions are divisible by 8
+        height, width = target.shape
+        if height % 8 != 0 or width % 8 != 0:
+            # Compute new dimensions that are divisible by 8
+            new_height = height + (8 - height % 8)
+            new_width = width + (8 - width % 8)
 
-        # Resize target to new dimensions
-        target = cv2.resize(target, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+            # Resize target to new dimensions
+            target = cv2.resize(target, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
-    # Resize target for model input
-    target = cv2.resize(target, (int(target.shape[1] / 8), int(target.shape[0] / 8)), interpolation=cv2.INTER_CUBIC) * 64
-    return np.expand_dims(target, axis=-1)
+        # Resize target for model input
+        target = cv2.resize(target, (int(target.shape[1] / 8), int(target.shape[0] / 8)), interpolation=cv2.INTER_CUBIC) * 64
+        return np.expand_dims(target, axis=-1)
+    except IOError:
+        print(f"Ground truth file not found: {path}")
+        return None
 
 # Image Generator:
 # This function acts as a generator for batch processing in model training. It randomly selects
@@ -88,15 +93,19 @@ def get_ground_truth(path):
 # batch_size (int): Number of images to include in each batch.
 # Yields:
 # (numpy.ndarray, numpy.ndarray): A tuple containing a batch of images and their corresponding ground truths.
-def image_generator(files, batch_size=64, target_height=256, target_width=2):
+def image_generator(files, batch_size=64, target_height=224, target_width=224):
     while True:
         input_path = np.random.choice(a=files, size=batch_size)
         batch_input, batch_output = [], []
         for path in input_path:
-            input_img = preprocess_image(path)  # Preprocess image to [224, 224, 3]
+            input_img = preprocess_image(path)
 
-            output = get_ground_truth(path.replace('.jpg','.h5').replace('images','ground_truth'))
+            ground_truth_path = path.replace('.jpg','.h5').replace('images','ground_truth')
+            output = get_ground_truth(ground_truth_path)
             
+            if output is None:  # Skip this image if ground truth is missing
+                continue
+
             # Ensure the output is resized correctly
             current_height, current_width = output.shape[:2]
             if current_height != target_height or current_width != target_width:
@@ -106,7 +115,12 @@ def image_generator(files, batch_size=64, target_height=256, target_width=2):
             batch_input.append(input_img)
             batch_output.append(output)
 
-        yield np.array(batch_input), np.array(batch_output)
+            if len(batch_input) == batch_size:
+                break
+
+        # Yield only if the batch is full, otherwise skip to next iteration to fill the batch
+        if len(batch_input) == batch_size:
+            yield np.array(batch_input), np.array(batch_output)
 
 
 
@@ -116,19 +130,67 @@ def euclidean_distance_loss(y_true, y_pred):
     """
     Euclidean distance as a measure of loss (Loss function).
     Improved for numerical stability by adding a small constant inside the square root.
+    Includes checks for NaN and Inf values.
     """
     # Calculate squared difference
-    squared_difference = K.square(y_pred - y_true)
+    squared_difference = tf.square(y_pred - y_true)
     
     # Sum over all dimensions
-    sum_squared_difference = K.sum(squared_difference, axis=-1)
-    
-    # Add a small constant (epsilon) for numerical stability
-    epsilon = K.epsilon()
-    
-    # Return the square root of the sum
-    return K.sqrt(sum_squared_difference + epsilon)
+    sum_squared_difference = tf.reduce_sum(squared_difference, axis=-1)
 
+    # Add a small constant (epsilon) for numerical stability
+    epsilon = tf.maximum(tf.keras.backend.epsilon(), tf.reduce_min(squared_difference) * tf.keras.backend.epsilon())
+
+    # Calculate the square root
+    distance = tf.sqrt(sum_squared_difference + epsilon)
+
+    # Check for NaNs and replace them with zeros
+    distance = tf.where(tf.math.is_nan(distance), tf.zeros_like(distance), distance)
+
+    return distance
+
+
+
+
+# Function to initialize the weights of a model with weights from a pre-trained VGG16 model.
+
+    # This function aids in transfer learning by using the powerful feature extraction 
+    # capabilities of the VGG16 model, pre-trained on ImageNet. It loads the VGG16 model's 
+    # architecture and weights from JSON and H5 files, respectively. The function then 
+    # transfers the weights from the convolutional layers of VGG16 to the corresponding layers 
+    # of the provided model. This initialization can enhance the learning capability of the model,
+    # particularly useful when dealing with limited training data or seeking quick convergence.
+
+    # Args:
+    # model (tensorflow.keras.models.Model): The custom model to initialize with VGG16 weights.
+    # Returns:
+    # tensorflow.keras.models.Model: The model with VGG16 weights initialized.
+    
+    # Note: The JSON and H5 files must contain the VGG16 model architecture and weights. 
+    # Ensure compatibility of convolutional layers between the custom and VGG16 models.
+
+
+def init_weights_vgg(model):
+    # Load VGG16 model architecture and weights
+    json_file = open('models/VGG_16.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    loaded_vgg_model = model_from_json(loaded_model_json)
+    loaded_vgg_model.load_weights("weights/VGG_16.h5")
+    
+    # Iterate over the layers of VGG16 and your model simultaneously
+    vgg_layers = [layer for layer in loaded_vgg_model.layers if 'conv' in layer.name]
+    model_layers = [layer for layer in model.layers if 'conv' in layer.name]
+
+    for vgg_layer, model_layer in zip(vgg_layers, model_layers):
+        # Check if the layer shapes are compatible
+        if vgg_layer.get_weights()[0].shape == model_layer.get_weights()[0].shape:
+            model_layer.set_weights(vgg_layer.get_weights())
+        else:
+            print("fuck")
+            break  # Stop if layers are not compatible
+
+    return model
 
 
 # CrowdNet Model Definition:
@@ -153,13 +215,13 @@ def euclidean_distance_loss(y_true, y_pred):
 # After defining the model, it is recommended to check the model structure using model.summary().
 
 
-def CrowdNet(rows, cols, target_height, target_width, use_batch_norm=True, optimizer_name='adam', learning_rate=1e-4, dropout_rate=0.5):    
-     assert rows % 16 == 0 and cols % 16 == 0, "Rows and columns must be divisible by 16"
-     input_layer = Input(shape=(rows, cols, 3))
-     x = input_layer
+def CrowdNet(use_batch_norm, optimizer_name='adam', learning_rate=1e-4, dropout_rate=0.5):
+    # Input layer
+    input_layer = Input(shape=(None, None, 3))
+    x = input_layer
 
     # First set of layers: Conv, BatchNorm, MaxPooling, Dropout
-     for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
+    for filters in [64, 64, 128, 128, 256, 256, 256, 512, 512, 512]:
         x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
         if use_batch_norm:
             x = BatchNormalization()(x)
@@ -167,38 +229,28 @@ def CrowdNet(rows, cols, target_height, target_width, use_batch_norm=True, optim
         x = Dropout(dropout_rate)(x)
 
     # Additional Conv layers without pooling
-     for filters in [512, 512, 512, 256, 128, 64]:
+    for filters in [512, 512, 512, 256, 128, 64]:
         x = Conv2D(filters, (3, 3), activation='relu', padding='same', kernel_initializer=RandomNormal(stddev=0.01))(x)
         if use_batch_norm:
             x = BatchNormalization()(x)
         x = Dropout(dropout_rate)(x)
 
-    # Flatten and add dense layers
-     x = Flatten()(x)
+    # Output layer
+    x = Conv2D(1, (1, 1), activation='relu', dilation_rate=1, kernel_initializer=RandomNormal(stddev=0.01), padding='same')(x)
 
-     # Calculate the correct number of units for the Dense layer to match the Reshape target
-     target_shape = (target_height, target_width, 1)
-     dense_units = target_height * target_width
-
-    # Dense layer with the calculated number of units
-     x = Dense(dense_units, activation='relu')(x)
-     x = Dropout(dropout_rate)(x)
-
-    # Reshape output for final Conv2D layer
-     x = Reshape(target_shape)(x)
-
-    # Final Conv2D layer to output a density map
-     x = Conv2D(1, (1, 1), activation='linear', padding='same')(x)
-
-     model = Model(inputs=input_layer, outputs=x)
+    # Creating model
+    model = Model(inputs=input_layer, outputs=x)
 
     # Choose the optimizer
-     optimizer = Adam(learning_rate=learning_rate) if optimizer_name == 'adam' else SGD(learning_rate=learning_rate, decay=5e-4, momentum=0.95)
+    if optimizer_name == 'adam':
+        optimizer = Adam(learning_rate=learning_rate)
+    else:
+        optimizer = SGD(learning_rate=learning_rate, decay=5e-4, momentum=0.95)
 
-    # Compile the model with Euclidean distance loss
-     model.compile(optimizer=optimizer, loss=euclidean_distance_loss, metrics=['mse'])
-     return model
-
+    # Compile the model
+    model.compile(optimizer=optimizer, loss=euclidean_distance_loss, metrics=['mse'])
+    model = init_weights_vgg(model)
+    return model
 # Function: train_and_save_model
 # This function handles the training of a Keras model using provided data from a generator. It 
 # allows specifying the number of training epochs and steps per epoch, which are essential parameters 
@@ -245,8 +297,10 @@ root_dir = os.path.join(os.getcwd(), 'ShanghaiTech')
 part_A_train = os.path.join(root_dir, 'part_A_final/train_data', 'images')
 img_paths = [os.path.join(part_A_train, img) for img in os.listdir(part_A_train) if img.endswith('.jpg')]
 
+# ...
+
 # Initialize and compile the CrowdNet model with specified parameters
-model = CrowdNet(224, 224, 256, 2, use_batch_norm=True, optimizer_name='adam', dropout_rate=0.5)
+model = CrowdNet(use_batch_norm=False, optimizer_name='adam', dropout_rate=0.5)
 
 # Create a generator for the training data
 train_gen = image_generator(img_paths, batch_size=1)
