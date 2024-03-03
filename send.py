@@ -16,9 +16,8 @@ app = Flask(__name__)
 
 
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate('see-the-sea-4c396-firebase-adminsdk-q002e-5a3e258116.json')
+cred = 
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://see-the-sea-4c396-default-rtdb.europe-west1.firebasedatabase.app'})
 
 # Global variables
 video_stream_url = ''
