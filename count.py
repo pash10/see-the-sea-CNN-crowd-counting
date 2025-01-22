@@ -237,8 +237,3 @@ def process_frame(frame):
     return count , heatmap
 
 
-
-
-
-
-

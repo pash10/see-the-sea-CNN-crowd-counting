@@ -27,7 +27,6 @@ count = 0
 #hold_img_numer = queue.Queue()
 to_con_q = queue.Queue()
 
-
 def fetch_ip():
     global video_stream_url
     try:
@@ -42,7 +41,6 @@ def fetch_ip():
         video_stream_url = url_db2
     except Exception as e:
         print(f"Error fetching IP: {e}")
-
 
 
 def monitor_queue_empty_state(queue, empty_wait_time=30):
@@ -120,7 +118,6 @@ def consumer():
             #print(f"hold_img_numer empty: {hold_img_numer.empty()}, frame_queue empty: {frame_queue.empty()}, count: {count}")
             time.sleep(1)  # Sleep to prevent a tight loop and give time f                
 
-
 def plot_img(img_number, count, img):
     # Ensure the image is in 8-bit format without changing its size
     if img.dtype != np.uint8:
@@ -148,7 +145,6 @@ def plot_img(img_number, count, img):
     cv2.waitKey(2000)  # Display for 2 seconds
     cv2.destroyWindow(window_name)
 
-
 def update_count(ref, count):
     if count is not None:
         ref.set(int(count))
@@ -166,8 +162,6 @@ def generate_video_stream():
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes.tobytes() + b'\r\n')
         else:
             time.sleep(0.1)  # Add a slight delay to avoid busy-waiting
-
-
 
 # Define your cleanup function
 def cleanup():
@@ -216,5 +210,4 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("Interrupt received, cleaning up...")
         cleanup()
-
 

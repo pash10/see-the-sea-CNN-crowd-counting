@@ -30,7 +30,6 @@ def gpu():
     else:
         print('No GPU found, using CPU as intended.')
 
-# Now, call the gpu() function as the very first action:
 gpu()
 
 
@@ -407,7 +406,7 @@ val_steps_per_epoch =100
 
 
 
-# Prefetch to improve performance
+# Prefetch to improve performance plz work my homie 
 train_dataset = tf.data.Dataset.from_generator(
     lambda: image_generator(train_img_paths, batch_size),
     output_types=(tf.float32, tf.float32),
@@ -433,3 +432,6 @@ model.fit(
 )
 
 save_mod(model)
+
+
+
