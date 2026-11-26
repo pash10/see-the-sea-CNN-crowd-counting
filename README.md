@@ -23,7 +23,7 @@ working on the code
 **Steps:**
 1. Clone the repository:
    ```
-   git clone https://github.com/pash10/see-the-see
+   git clone https://github.com/pash10/see-the-sea-CNN-crowd-counting
    ```
 2. Install the dependencies:
    ```
@@ -91,3 +91,7 @@ year={2016}
 
 ---
 
+
+
+## Firebase credentials
+Set `FIREBASE_DATABASE_URL` at runtime. Configure Application Default Credentials using workload identity where available or a protected service-account file outside the repository (`GOOGLE_APPLICATION_CREDENTIALS`). Never commit the key. Review database rules and IAM, and rotate any credential suspected to have been exposed. No live Firebase testing was performed. Dataset and model licensing and historical secret scanning remain separate review items.
