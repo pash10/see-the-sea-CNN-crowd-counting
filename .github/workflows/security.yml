@@ -1,0 +1,26 @@
+name: Security review
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan Git history (redacted)
+        run: docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact=100 --no-banner /repo
+  filesystem:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Scan dependencies and configuration
+        run: docker run --rm -v "$PWD:/repo:ro" aquasec/trivy:0.58.2 fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --skip-dirs /repo/ShanghaiTech --skip-dirs /repo/weights --skip-dirs /repo/temo /repo
