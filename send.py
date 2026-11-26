@@ -16,9 +16,10 @@ class ImgAndNum:
          self.count = count
          self.frame = frame
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate('see-the-sea-4c396-firebase-adminsdk-q002e-5a3e258116.json')
+cred = credentials.ApplicationDefault()
 firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://see-the-sea-4c396-default-rtdb.europe-west1.firebasedatabase.app'})
+    'databaseURL': os.environ['FIREBASE_DATABASE_URL']
+})
 
 # Global variables
 video_stream_url = ''
