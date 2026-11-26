@@ -14,7 +14,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Scan Git history (redacted)
-        run: docker run --rm -v "$PWD:/repo:ro" ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact=100 --no-banner /repo
+        run: |
+          report_dir=$(mktemp -d)
+          trap 'rm -rf -- "$report_dir"' EXIT
+          status=0
+          docker run --rm -v "$PWD:/repo:ro" -v "$report_dir:/reports" ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact=100 --no-banner --report-format json --report-path /reports/report.json /repo || status=$?
+          if [ -f "$report_dir/report.json" ]; then
+            python3 - "$report_dir/report.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as f:
+              findings = json.load(f) or []
+          from collections import Counter
+          for rule, count in sorted(Counter(x.get("RuleID", "unknown") for x in findings).items()):
+              print(f"Rule: {rule}; count: {count}")
+          print(f"Total historical findings: {len(findings)}")
+          PY
+          fi
+          exit "$status"
   filesystem:
     runs-on: ubuntu-latest
     timeout-minutes: 25
